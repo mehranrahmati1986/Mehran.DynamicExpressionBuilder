@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <PackageId>Mehran.DynamicExpressionBuilder</PackageId>
+    <Title>فیلتر ساز پیشرفته</Title>
+    <Description>یک ابزار کاربردی برای ساخت و ایجاد عبارات دینامیک در زبان برنامه‌نویسی C# است که به شما این امکان را می‌دهد تا با استفاده از فیلترهای مختلف، شرط‌ها و عملیات منطقی را به‌صورت دینامیک و بدون نیاز به نوشتن کد اضافی برای هر نوع فیلتر خاص، تولید کنید. این پکیج به شما این امکان را می‌دهد که:</Description>
+  </PropertyGroup>
+
+</Project>
