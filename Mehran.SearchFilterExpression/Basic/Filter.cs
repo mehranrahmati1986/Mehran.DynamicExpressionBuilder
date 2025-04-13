@@ -7,7 +7,7 @@ public sealed record class Filter
     /// <summary>
     /// نام فیلد
     /// </summary>
-    public string Key { get; set; }
+    public string FieldName { get; set; }
 
     /// <summary>
     /// عملگر مقایسه
@@ -20,7 +20,7 @@ public sealed record class Filter
     public object Value { get; set; }
 
     /// <summary>
-    /// انتخاب شرط بین فیلتر ها
+    /// ساختار شرطی و - یا
     /// </summary>
     public AndOr AndOr { get; set; } = AndOr.And;
 }

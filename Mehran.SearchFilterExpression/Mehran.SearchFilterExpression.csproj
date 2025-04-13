@@ -6,11 +6,13 @@
     <Nullable>disable</Nullable>
     <PackageId>Mehran.DynamicExpressionBuilder</PackageId>
     <Title>فیلتر ساز پیشرفته</Title>
-    <Description>یک ابزار کاربردی برای ساخت و ایجاد عبارات دینامیک در زبان برنامه‌نویسی C# است که به شما این امکان را می‌دهد تا با استفاده از فیلترهای مختلف، شرط‌ها و عملیات منطقی را به‌صورت دینامیک و بدون نیاز به نوشتن کد اضافی برای هر نوع فیلتر خاص، تولید کنید. این پکیج به شما این امکان را می‌دهد که:</Description>
-    <RepositoryUrl>https://github.com/mehranrahmati1986/Mehran.DynamicExpressionBuilder</RepositoryUrl>
+	  <Description>ابزاری برای ساخت عبارات دینامیک در C# با استفاده از فیلترهای مختلف و عملیات منطقی. این پکیج به شما اجازه می‌دهد بدون نیاز به نوشتن کد اضافی، فیلترهای پیچیده و دینامیک ایجاد کنید.</Description>
+	  <RepositoryUrl>https://github.com/mehranrahmati1986/Mehran.DynamicExpressionBuilder</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
-    <Version>1.0.10</Version>
+    <Version>1.0.0</Version>
     <Authors>مهران قائدرحمت</Authors>
+	  <PackageTags>Dynamic, Expression, Filter, C#, LINQ</PackageTags>
+	  <Copyright>© 2025 مهران قائدرحمت</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
