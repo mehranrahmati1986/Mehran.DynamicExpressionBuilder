@@ -5,7 +5,7 @@ namespace Mehran.SearchFilterExpression.Basic;
 /// <summary>
 /// یک شرط فیلتر شامل نام فیلد، عملگر و مقدار
 /// </summary>
-public record class SearchFilter
+public class SearchFilter
 {
     /// <summary>
     /// لیستی از فیلتر ها

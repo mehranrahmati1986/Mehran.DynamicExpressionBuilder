@@ -1,22 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PackageId>Mehran.DynamicExpressionBuilder</PackageId>
     <Title>فیلتر ساز پیشرفته</Title>
-	  <Description>ابزاری برای ساخت عبارات دینامیک در C# با استفاده از فیلترهای مختلف و عملیات منطقی. این پکیج به شما اجازه می‌دهد بدون نیاز به نوشتن کد اضافی، فیلترهای پیچیده و دینامیک ایجاد کنید.</Description>
+	  <Description>
+	   A tool for building dynamic expressions in C# using various filters and logical operations. This package allows you to create complex and dynamic filters without writing repetitive code.
+       ابزاری برای ساخت عبارات دینامیک در سی شارپ با استفاده از فیلترهای مختلف و عملیات منطقی. این پکیج به شما اجازه می‌دهد بدون نیاز به نوشتن کد اضافی، فیلترهای پیچیده و دینامیک ایجاد کنی.
+	  أداة لإنشاء التعبيرات الديناميكية في لغة C# باستخدام فلاتر مختلفة وعمليات منطقية. تتيح لك هذه الحزمة إنشاء فلاتر معقدة وديناميكية بدون الحاجة لكتابة كود إضافي.</Description>
 	  <RepositoryUrl>https://github.com/mehranrahmati1986/Mehran.DynamicExpressionBuilder</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
-    <Version>1.0.0</Version>
+    <Version>1.0.2</Version>
     <Authors>مهران قائدرحمت</Authors>
 	  <PackageTags>Dynamic, Expression, Filter, C#, LINQ</PackageTags>
 	  <Copyright>© 2025 مهران قائدرحمت</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MehranPagination.Core" Version="1.0.6" />
+    <PackageReference Include="MehranPagination.Core" Version="1.0.0" />
   </ItemGroup>
 
 </Project>
