@@ -71,10 +71,7 @@ The filter model is structured like this:
       ],
       "groupAndOr": 1
     }
-  ],
-  "pageIndex": 1,
-  "pageSize": 5,
-  "sortOptions": []
+  ]
 }
 ```
 
@@ -269,10 +266,7 @@ var results = dbContext.Users.Where(expression).ToList();
       ],
       "groupAndOr": 1
     }
-  ],
-  "pageIndex": 1,
-  "pageSize": 5,
-  "sortOptions": []
+  ]
 }
 ```
 
@@ -457,10 +451,7 @@ var results = dbContext.Users.Where(expression).ToList();
       ],
       "groupAndOr": 1
     }
-  ],
-  "pageIndex": 1,
-  "pageSize": 5,
-  "sortOptions": []
+  ]
 }
 ```
 
