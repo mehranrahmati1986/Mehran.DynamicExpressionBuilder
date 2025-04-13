@@ -1,6 +1,7 @@
 ﻿using Mehran.SearchFilterExpression.Basic;
 using Mehran.SearchFilterExpression.Enums;
 using System.Collections;
+using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -23,39 +24,52 @@ public class DynamicExpressionBuilder
         {
             Expression groupExpr = null;
 
-            // اگر فیلترها به صورت یک مجموعه ساده (بدون گروه‌بندی تو در تو) باشند.
             if (IsFlatCollectionFilterGroup<T>(group.Filters, out Expression collectionExpr, out ParameterExpression itemParam, out Expression conditionExpr))
             {
-                MethodInfo anyMethod = typeof(Enumerable).GetMethods()
+                // Before calling Expression.Call, check if collectionExpr and conditionExpr are not null
+                if (collectionExpr == null)
+                {
+                    throw new InvalidOperationException("collectionExpr cannot be null.");
+                }
+
+                if (conditionExpr == null)
+                {
+                    throw new InvalidOperationException("conditionExpr cannot be null.");
+                }
+
+                MethodInfo anyMethod = typeof(Queryable).GetMethods()
                     .First(m => m.Name == "Any" && m.GetParameters().Length == 2)
                     .MakeGenericMethod(itemParam.Type);
 
-                MethodCallExpression anyExpr = Expression.Call(anyMethod, collectionExpr, Expression.Lambda(conditionExpr, itemParam));
+                Expression collectionExprQueryable = Expression.Call(
+                    typeof(Queryable),
+                    "AsQueryable",
+                    new Type[] { itemParam.Type },
+                    collectionExpr
+                );
+
+                MethodCallExpression anyExpr = Expression.Call(
+                    anyMethod,
+                    collectionExprQueryable,
+                    Expression.Lambda(conditionExpr, itemParam)
+                );
                 groupExpr = anyExpr;
             }
             else
             {
-                // برای هر فیلتر در گروه
+                List<Expression> expressions = new();
+                List<AndOr> operators = new();
+
                 foreach (Filter filter in group.Filters)
                 {
-                    Expression binary = GetNestedPropertyExpression(parameter, filter.Key, filter.Value, filter.Operator);
-                    groupExpr = groupExpr == null ? binary
-                        : filter.AndOr == AndOr.Or
-                            ? Expression.OrElse(groupExpr, binary)
-                            : Expression.AndAlso(groupExpr, binary);
+                    Expression expr = GetNestedPropertyExpression(parameter, filter.Key, filter.Value, filter.Operator);
+                    expressions.Add(expr);
+                    operators.Add(filter.AndOr);
                 }
+
+                groupExpr = CombineExpressions(expressions, operators);
             }
 
-            // اگر در گروه نیاز به پرانتز باشد
-            if (group.UseParentheses)
-            {
-                groupExpr = Expression.Call(
-                    typeof(Expression).GetMethod("Quote", [typeof(Expression)]),
-                    groupExpr
-                );
-            }
-
-            // ترکیب گروه‌ها با عملیات AND/OR
             combined = combined == null ? groupExpr
                 : group.GroupAndOr == AndOr.Or
                     ? Expression.OrElse(combined, groupExpr)
@@ -63,6 +77,21 @@ public class DynamicExpressionBuilder
         }
 
         return Expression.Lambda<Func<T, bool>>(combined!, parameter);
+    }
+
+    private static Expression CombineExpressions(List<Expression> expressions, List<AndOr> operators)
+    {
+        if (expressions.Count == 0) return null!;
+        Expression result = expressions[0];
+
+        for (int i = 1; i < expressions.Count; i++)
+        {
+            result = operators[i] == AndOr.Or
+                ? Expression.OrElse(result, expressions[i])
+                : Expression.AndAlso(result, expressions[i]);
+        }
+
+        return result;
     }
 
     private static bool IsFlatCollectionFilterGroup<T>(List<Filter> filters, out Expression collectionExpr, out ParameterExpression itemParam, out Expression conditionExpr)
@@ -95,9 +124,30 @@ public class DynamicExpressionBuilder
             MemberExpression member = Expression.PropertyOrField(param, innerPropName);
             Type targetType = Nullable.GetUnderlyingType(member.Type) ?? member.Type;
 
-            object convertedValue = targetType.IsEnum
-                ? Enum.Parse(targetType, filter.Value.ToString()!)
-                : Convert.ChangeType(filter.Value, targetType);
+            object convertedValue;
+            try
+            {
+                if (targetType.IsEnum)
+                {
+                    convertedValue = Enum.Parse(targetType, filter.Value.ToString()!, ignoreCase: true);
+                }
+                else
+                {
+                    var converter = TypeDescriptor.GetConverter(targetType);
+                    if (converter != null && converter.CanConvertFrom(filter.Value.GetType()))
+                    {
+                        convertedValue = converter.ConvertFrom(filter.Value);
+                    }
+                    else
+                    {
+                        convertedValue = converter.ConvertFromInvariantString(filter.Value.ToString());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidCastException($"Error converting value '{filter.Value}' to type '{targetType.Name}'.", ex);
+            }
 
             ConstantExpression constant = Expression.Constant(convertedValue, member.Type);
 
@@ -109,12 +159,11 @@ public class DynamicExpressionBuilder
                 Operator.GreaterOrEqual => Expression.GreaterThanOrEqual(member, constant),
                 Operator.Less => Expression.LessThan(member, constant),
                 Operator.LessOrEqual => Expression.LessThanOrEqual(member, constant),
-                Operator.Contains => Expression.Call(member, typeof(string).GetMethod("Contains", [typeof(string)])!, constant),
-                Operator.StartsWith => Expression.Call(member, typeof(string).GetMethod("StartsWith", [typeof(string)])!, constant),
-                Operator.EndsWith => Expression.Call(member, typeof(string).GetMethod("EndsWith", [typeof(string)])!, constant),
+                Operator.Contains => Expression.Call(member, typeof(string).GetMethod("Contains", new[] { typeof(string) })!, constant),
+                Operator.StartsWith => Expression.Call(member, typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!, constant),
+                Operator.EndsWith => Expression.Call(member, typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!, constant),
                 _ => throw new NotSupportedException($"Operator '{filter.Operator}' is not supported.")
             };
-
 
             innerCombined = innerCombined == null ? binary
                 : filter.AndOr == AndOr.Or
@@ -129,6 +178,69 @@ public class DynamicExpressionBuilder
     }
 
     public static Expression GetNestedPropertyExpression(Expression parameter, string propertyPath, object value, Operator op)
+    {
+        var parts = propertyPath.Split('.');
+        Expression current = parameter;
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var property = current.Type.GetProperty(parts[i]);
+            if (property == null)
+                throw new InvalidOperationException($"Property '{parts[i]}' not found on type '{current.Type.Name}'");
+
+            var isEnumerable = property.PropertyType != typeof(string) &&
+                               typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType);
+
+            // اگر به لیست رسیدیم
+            if (isEnumerable && property.PropertyType.IsGenericType)
+            {
+                var itemType = property.PropertyType.GetGenericArguments()[0];
+
+                // ساخت پارامتر برای آیتم لیست
+                var innerParam = Expression.Parameter(itemType, "y");
+
+                // ادامه مسیر (مثلاً name از provinces.name)
+                var remainingPath = string.Join('.', parts.Skip(i + 1));
+                var innerExpr = GetNestedPropertyExpression(innerParam, remainingPath, value, op);
+
+                // Any
+                var anyMethod = typeof(Enumerable).GetMethods()
+                    .First(m => m.Name == "Any" && m.GetParameters().Length == 2)
+                    .MakeGenericMethod(itemType);
+
+                var lambda = Expression.Lambda(innerExpr, innerParam);
+                return Expression.Call(anyMethod, Expression.PropertyOrField(current, parts[i]), lambda);
+            }
+
+            // حرکت به مرحله بعدی مسیر
+            current = Expression.PropertyOrField(current, parts[i]);
+        }
+
+        // بررسی نوع فیلد برای ساخت مقدار مناسب
+        var targetType = Nullable.GetUnderlyingType(current.Type) ?? current.Type;
+        object convertedValue = targetType.IsEnum
+            ? Enum.Parse(targetType, value.ToString()!)
+            : Convert.ChangeType(value, targetType);
+
+        var constant = Expression.Constant(convertedValue, current.Type);
+
+        // ساخت شرط نهایی
+        return op switch
+        {
+            Operator.Equal => Expression.Equal(current, constant),
+            Operator.NotEqual => Expression.NotEqual(current, constant),
+            Operator.Greater => Expression.GreaterThan(current, constant),
+            Operator.GreaterOrEqual => Expression.GreaterThanOrEqual(current, constant),
+            Operator.Less => Expression.LessThan(current, constant),
+            Operator.LessOrEqual => Expression.LessThanOrEqual(current, constant),
+            Operator.Contains => Expression.Call(current, typeof(string).GetMethod("Contains", [typeof(string)])!, current),
+            Operator.StartsWith => Expression.Call(current, typeof(string).GetMethod("StartsWith", [typeof(string)])!, current),
+            Operator.EndsWith => Expression.Call(current, typeof(string).GetMethod("EndsWith", [typeof(string)])!, current),
+            _ => throw new NotSupportedException($"عملگر '{op}' پشتیبانی نمی‌شود.")
+        };
+    }
+
+    public static Expression GetNestedPropertyExpression1(Expression parameter, string propertyPath, object value, Operator op)
     {
         string[] parts = propertyPath.Split('.');
         Expression current = parameter;
@@ -155,7 +267,7 @@ public class DynamicExpressionBuilder
                 string remainingPath = string.Join('.', parts.Skip(i + 1));
                 Expression innerExpr = GetNestedPropertyExpression(innerParam, remainingPath, value, op);
 
-                MethodInfo anyMethod = typeof(Enumerable).GetMethods()
+                MethodInfo anyMethod = typeof(Queryable).GetMethods()
                     .First(m => m.Name == "Any" && m.GetParameters().Length == 2)
                     .MakeGenericMethod(itemType);
 
@@ -168,7 +280,6 @@ public class DynamicExpressionBuilder
 
         Type targetTypeFinal = Nullable.GetUnderlyingType(current.Type) ?? current.Type;
 
-        // بررسی و تبدیل ایمن به نوع مناسب
         object convertedValueFinal = null;
         try
         {
@@ -178,18 +289,22 @@ public class DynamicExpressionBuilder
             }
             else
             {
-                if (targetTypeFinal == typeof(string))
+                if (targetTypeFinal.IsEnum)
                 {
-                    // اگر نوع مقصد string باشد، به طور مستقیم تبدیل می‌کنیم.
-                    convertedValueFinal = value.ToString();
-                }
-                else if (targetTypeFinal.IsEnum)
-                {
-                    convertedValueFinal = Enum.Parse(targetTypeFinal, value.ToString()!);
+                    convertedValueFinal = Enum.Parse(targetTypeFinal, value.ToString()!, ignoreCase: true);
                 }
                 else
                 {
-                    convertedValueFinal = Convert.ChangeType(value, targetTypeFinal);
+                    var converter = TypeDescriptor.GetConverter(targetTypeFinal);
+
+                    if (converter != null && converter.CanConvertFrom(value.GetType()))
+                    {
+                        convertedValueFinal = converter.ConvertFrom(value);
+                    }
+                    else
+                    {
+                        convertedValueFinal = converter.ConvertFromInvariantString(value.ToString());
+                    }
                 }
             }
         }
@@ -214,7 +329,7 @@ public class DynamicExpressionBuilder
             _ => throw new NotSupportedException($"Operator '{op}' is not supported.")
         };
     }
-
-
 }
+
+
 

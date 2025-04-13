@@ -1,4 +1,6 @@
-﻿namespace Mehran.SearchFilterExpression.Basic;
+﻿using MehranSmartPaginatedList.Core.Sort;
+
+namespace Mehran.SearchFilterExpression.Basic;
 
 /// <summary>
 /// یک شرط فیلتر شامل نام فیلد، عملگر و مقدار
